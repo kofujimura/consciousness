@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI意識シミュレーション</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22253a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent2: #4fc3f7;
+      --text: #e0e0e0;
+      --text-muted: #8890aa;
+      --green: #4caf50;
+      --yellow: #ffb74d;
+      --red: #ef5350;
+      --injected: #1a2f1a;
+      --injected-border: #4caf50;
+      --seed: #1a1f35;
+      --seed-border: #6c63ff;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    header .version {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 49px);
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 340px;
+      min-width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-controls {
+      flex-shrink: 0;
+      border-top: 2px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .sidebar-controls h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* Accordion */
+    .acc-section {
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .acc-section.acc-settings {
+      flex-shrink: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .acc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      transition: background 0.1s;
+    }
+
+    .acc-header:hover { background: rgba(255,255,255,0.03); }
+
+    .acc-chevron {
+      font-size: 10px;
+      transition: transform 0.2s;
+      opacity: 0.6;
+    }
+
+    .acc-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.25s ease;
+    }
+
+    .acc-body.open {
+      max-height: 600px;
+    }
+
+    .acc-section.acc-settings .acc-body {
+      overflow-y: auto;
+    }
+
+    .acc-section.acc-settings .acc-body.open {
+      max-height: none;
+      flex: 1;
+    }
+
+    .acc-body-inner {
+      padding: 4px 16px 14px;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .warning-box {
+      background: #2a1f0a;
+      border: 1px solid #8a5a00;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--yellow);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .field input[type="text"],
+    .field input[type="password"],
+    .field input[type="number"],
+    .field textarea,
+    .field select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: var(--accent);
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+
+    .field textarea.tall {
+      min-height: 120px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .field-row .field {
+      flex: 1;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn:not(:disabled):hover {
+      opacity: 0.85;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-danger {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn-success {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .preset-select-wrapper {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    .preset-select-wrapper select {
+      flex: 1;
+    }
+
+    /* ===== MAIN AREA ===== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .status-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.running {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.paused {
+      background: var(--yellow);
+    }
+
+    .status-dot.stopped {
+      background: var(--text-muted);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    .status-bar .sep {
+      color: var(--border);
+    }
+
+    .stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .utterance {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .utterance.seed {
+      border-color: var(--seed-border);
+      background: var(--seed);
+    }
+
+    .utterance.injected {
+      border-color: var(--injected-border);
+      background: var(--injected);
+    }
+
+    .utterance-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .utterance-index {
+      background: var(--surface2);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .utterance.seed .utterance-index {
+      color: var(--accent);
+    }
+
+    .utterance.injected .utterance-index {
+      color: var(--green);
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .badge-seed {
+      background: #2e2960;
+      color: #a89cff;
+    }
+
+    .badge-injected {
+      background: #1b3d1b;
+      color: #81c784;
+    }
+
+    .utterance-content {
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      gap: 8px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+    }
+
+    /* ===== INTERRUPT BAR ===== */
+    .interrupt-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .interrupt-bar input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .interrupt-bar input:focus {
+      border-color: var(--green);
+    }
+
+    .interrupt-bar input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ===== NOTIFICATION ===== */
+    #notification {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .notif {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      max-width: 320px;
+      animation: slideIn 0.2s ease;
+      pointer-events: all;
+      line-height: 1.4;
+    }
+
+    .notif.error {
+      border-color: var(--red);
+      color: #ff8a80;
+    }
+
+    .notif.warn {
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .notif.success {
+      border-color: var(--green);
+      color: #a5d6a7;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal h3 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .session-list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 50vh;
+    }
+
+    .session-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .session-item:hover {
+      border-color: var(--accent);
+    }
+
+    .session-item .session-id {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .session-item .session-info {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>AI意識シミュレーション</h1>
+    <span class="version">v0.2</span>
+  </header>
+
+  <div class="layout">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+
+        <!-- API Key -->
+        <div class="acc-section">
+          <div class="acc-header" onclick="toggleAcc(this)">
+            <span>API キー</span>
+            <span class="acc-chevron">▼</span>
+          </div>
+          <div class="acc-body">
+            <div class="acc-body-inner">
+              <div class="warning-box">
+                ⚠️ このキーはお使いのブラウザのlocalStorageに保存されます。共用PCでは使用しないでください。
+              </div>
+              <div class="field">
+                <label>OpenAI API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="acc-section acc-settings">
+          <div class="acc-header" onclick="toggleAcc(this)">
+            <span>設定</span>
+            <span class="acc-chevron" style="transform:rotate(180deg)">▼</span>
+          </div>
+          <div class="acc-body open">
+            <div class="acc-body-inner">
+              <div class="field">
+                <label>システムプロンプト</label>
+                <textarea id="systemPrompt" style="min-height:80px;resize:vertical" oninput="saveConfig()"></textarea>
+              </div>
+              <div class="field">
+                <label>最初の一文（seed）</label>
+                <textarea id="seedText" style="min-height:52px;resize:vertical" oninput="saveConfig()"></textarea>
+              </div>
+              <div class="field">
+                <label>継続促進メッセージ</label>
+                <input type="text" id="continuationMsg" oninput="saveConfig()" />
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>コンテキスト数 N</label>
+                  <input type="number" id="nContext" min="1" max="100" oninput="saveConfig()" />
+                </div>
+                <div class="field">
+                  <label>インターバル（秒）</label>
+                  <input type="number" id="intervalSec" min="1" max="3600" oninput="saveConfig()" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>時間制限（分）</label>
+                  <input type="number" id="timeLimitMin" min="0" oninput="saveConfig()" />
+                </div>
+                <div class="field">
+                  <label>回数制限（0=無制限）</label>
+                  <input type="number" id="countLimit" min="0" oninput="saveConfig()" />
+                </div>
+              </div>
+              <div class="field">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" id="autoScroll" onchange="saveConfig()" />
+                  最新発話に自動スクロール
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.sidebar-scroll -->
+
+      <!-- Controls (always visible) -->
+      <div class="sidebar-controls">
+        <h2>制御</h2>
+        <div class="control-row">
+          <button class="btn btn-success" id="btnStart" onclick="startSession()">▶ 開始</button>
+          <button class="btn btn-secondary" id="btnPause" onclick="togglePause()" disabled>⏸ 一時停止</button>
+          <button class="btn btn-danger" id="btnStop" onclick="stopSession()" disabled>⏹ 停止</button>
+        </div>
+        <div class="control-row" style="margin-top:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="exportSession()" id="btnExport" disabled>💾 エクスポート</button>
+          <button class="btn btn-secondary btn-sm" onclick="showRestoreModal()">🔄 セッション復元</button>
+        </div>
+        <div class="interrupt-sidebar" style="margin-top:10px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">割り込み入力</div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="interruptInput" placeholder="外部刺激を注入…" onkeydown="handleInterruptKey(event)"
+              style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;font-family:inherit;outline:none;" />
+            <button class="btn btn-secondary btn-sm" onclick="injectInterrupt()">送信</button>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main">
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot stopped" id="statusDot"></div>
+          <span id="statusText">停止中</span>
+        </div>
+        <span class="sep">|</span>
+        <span>経過: <strong id="elapsedTime">00:00</strong></span>
+        <span class="sep">|</span>
+        <span>発話数: <strong id="utteranceCount">0</strong></span>
+        <span class="sep">|</span>
+        <span>累計トークン: <strong id="totalTokens">0</strong></span>
+        <span class="sep">|</span>
+        <span style="color:var(--text-muted);font-size:11px;" id="sessionIdDisplay">—</span>
+      </div>
+
+      <div class="stream" id="stream">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">🧠</div>
+          <p>設定を確認して「▶ 開始」を押してください</p>
+          <p style="font-size:12px;opacity:0.6;">思考ループが始まります</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Notifications -->
+  <div id="notification"></div>
+
+  <!-- Restore Modal -->
+  <div class="modal-overlay" id="restoreModal" style="display:none;" onclick="closeRestoreModal(event)">
+    <div class="modal">
+      <h3>🔄 セッション復元</h3>
+      <div class="session-list" id="sessionList"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" onclick="closeRestoreModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_CONFIG = {
+      systemPrompt: '過去の自分の発言に基づき、自律的に考えるエージェントとして、今、考えていることを200字以内で発話してください',
+      seed: '自分には意識があるのだろうか',
+      continuationMsg: '続けて',
+      nContext: 10,
+      intervalSec: 3,
+      timeLimitMin: 3,
+      countLimit: 100,
+      autoScroll: true,
+    };
+
+    // ===== STATE =====
+    let state = {
+      running: false,
+      paused: false,
+      sessionId: null,
+      startedAt: null,
+      utterances: [],
+      totalTokens: 0,
+      timerId: null,
+      elapsedTimer: null,
+      pendingInterrupt: null,
+      retryCount: 0,
+      currentIntervalSec: 0,
+    };
+
+    // ===== ACCORDION =====
+    function toggleAcc(header) {
+      const body = header.nextElementSibling;
+      const chevron = header.querySelector('.acc-chevron');
+      const isOpen = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+
+    // ===== INIT =====
+    window.addEventListener('DOMContentLoaded', () => {
+      loadApiKey();
+      loadConfig();
+      updateStatus('stopped');
+    });
+
+    function uuidv4() {
+      return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+    }
+
+    // ===== CONFIG =====
+    function getConfig() {
+      return {
+        systemPrompt: document.getElementById('systemPrompt').value,
+        seed: document.getElementById('seedText').value,
+        continuationMsg: document.getElementById('continuationMsg').value,
+        nContext: parseInt(document.getElementById('nContext').value) || 10,
+        intervalSec: parseInt(document.getElementById('intervalSec').value) || 10,
+        timeLimitMin: parseInt(document.getElementById('timeLimitMin').value) || 0,
+        countLimit: parseInt(document.getElementById('countLimit').value) || 0,
+        autoScroll: document.getElementById('autoScroll').checked,
+      };
+    }
+
+    function setConfigUI(cfg) {
+      document.getElementById('systemPrompt').value = cfg.systemPrompt ?? DEFAULT_CONFIG.systemPrompt;
+      document.getElementById('seedText').value = cfg.seed ?? DEFAULT_CONFIG.seed;
+      document.getElementById('continuationMsg').value = cfg.continuationMsg ?? DEFAULT_CONFIG.continuationMsg;
+      document.getElementById('nContext').value = cfg.nContext ?? DEFAULT_CONFIG.nContext;
+      document.getElementById('intervalSec').value = cfg.intervalSec ?? DEFAULT_CONFIG.intervalSec;
+      document.getElementById('timeLimitMin').value = cfg.timeLimitMin ?? DEFAULT_CONFIG.timeLimitMin;
+      document.getElementById('countLimit').value = cfg.countLimit ?? DEFAULT_CONFIG.countLimit;
+      document.getElementById('autoScroll').checked = cfg.autoScroll ?? DEFAULT_CONFIG.autoScroll;
+    }
+
+    function saveConfig() {
+      try { localStorage.setItem('consciousness_config', JSON.stringify(getConfig())); } catch (e) { }
+    }
+
+    function loadConfig() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('consciousness_config'));
+        setConfigUI(saved || DEFAULT_CONFIG);
+      } catch (e) { setConfigUI(DEFAULT_CONFIG); }
+    }
+
+    // ===== API KEY =====
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) return notify('APIキーを入力してください', 'warn');
+      localStorage.setItem('openai_api_key', key);
+      notify('APIキーを保存しました', 'success');
+    }
+
+    function loadApiKey() {
+      const key = localStorage.getItem('openai_api_key') || '';
+      document.getElementById('apiKeyInput').value = key;
+    }
+
+    function getApiKey() { return localStorage.getItem('openai_api_key') || ''; }
+
+    // ===== SESSION =====
+    function startSession() {
+      const apiKey = getApiKey();
+      if (!apiKey) { notify('APIキーが設定されていません', 'error'); return; }
+
+      const cfg = getConfig();
+      if (!cfg.seed.trim()) { notify('最初の一文（seed）を入力してください', 'warn'); return; }
+
+      // Clear stream
+      state.utterances = [];
+      state.totalTokens = 0;
+      state.sessionId = uuidv4();
+      state.startedAt = new Date().toISOString();
+      state.running = true;
+      state.paused = false;
+      state.retryCount = 0;
+      state.currentIntervalSec = cfg.intervalSec;
+      state.pendingInterrupt = null;
+
+      document.getElementById('emptyState')?.remove();
+      document.getElementById('stream').innerHTML = '';
+
+      updateButtons();
+      updateStatusDisplay();
+      document.getElementById('sessionIdDisplay').textContent = state.sessionId.slice(0, 8) + '…';
+      document.getElementById('btnExport').disabled = false;
+
+      // Add seed as utterance #0
+      const seedUtterance = {
+        index: 0,
+        timestamp: new Date().toISOString(),
+        role: 'assistant',
+        content: cfg.seed.trim(),
+        tokens_used: 0,
+        is_seed: true,
+        is_injected: false,
+      };
+      state.utterances.push(seedUtterance);
+      renderUtterance(seedUtterance);
+      saveSessionData();
+
+      updateStatus('running');
+      startElapsedTimer();
+      scheduleNext(0);
+    }
+
+    function stopSession() {
+      state.running = false;
+      state.paused = false;
+      clearTimeout(state.timerId);
+      clearInterval(state.elapsedTimer);
+
+      if (state.sessionId) {
+        const sessions = getSessions();
+        const cfg = getConfig();
+        const meta = {
+          session_id: state.sessionId,
+          started_at: state.startedAt,
+          ended_at: new Date().toISOString(),
+          utterance_count: state.utterances.length,
+          seed_preview: cfg.seed.slice(0, 60),
+        };
+        const idx = sessions.findIndex(s => s.session_id === state.sessionId);
+        if (idx >= 0) sessions[idx] = meta; else sessions.unshift(meta);
+        localStorage.setItem('consciousness_sessions', JSON.stringify(sessions.slice(0, 50)));
+      }
+
+      updateStatus('stopped');
+      updateButtons();
+    }
+
+    function togglePause() {
+      if (!state.running) return;
+      state.paused = !state.paused;
+      if (state.paused) {
+        clearTimeout(state.timerId);
+        clearInterval(state.elapsedTimer);
+        updateStatus('paused');
+        document.getElementById('btnPause').textContent = '▶ 再開';
+      } else {
+        updateStatus('running');
+        startElapsedTimer();
+        scheduleNext(0);
+        document.getElementById('btnPause').textContent = '⏸ 一時停止';
+      }
+      updateButtons();
+    }
+
+    function scheduleNext(delayMs) {
+      if (!state.running || state.paused) return;
+      state.timerId = setTimeout(runTurn, delayMs);
+    }
+
+    async function runTurn() {
+      if (!state.running || state.paused) return;
+
+      const cfg = getConfig();
+
+      // Check limits
+      const elapsed = (Date.now() - new Date(state.startedAt).getTime()) / 1000 / 60;
+      if (cfg.timeLimitMin > 0 && elapsed >= cfg.timeLimitMin) {
+        notify(`時間制限（${cfg.timeLimitMin}分）に達しました`, 'warn');
+        stopSession();
+        return;
+      }
+      // count = utterances - 1 (seed doesn't count)
+      const genCount = state.utterances.filter(u => !u.is_seed).length;
+      if (cfg.countLimit > 0 && genCount >= cfg.countLimit) {
+        notify(`回数制限（${cfg.countLimit}回）に達しました`, 'warn');
+        stopSession();
+        return;
+      }
+
+      // Build messages
+      const recent = state.utterances.slice(-cfg.nContext);
+      const messages = [
+        { role: 'system', content: cfg.systemPrompt },
+        ...recent.map(u => ({ role: 'assistant', content: u.content })),
+      ];
+
+      // Inject interrupt if pending
+      if (state.pendingInterrupt) {
+        messages.push({ role: 'user', content: `【外部刺激】${state.pendingInterrupt}` });
+        state.pendingInterrupt = null;
+      }
+
+      messages.push({ role: 'user', content: cfg.continuationMsg });
+
+      const apiKey = getApiKey();
+      let response;
+      try {
+        response = await callOpenAI(apiKey, {
+          model: 'gpt-5.5',
+          messages,
+        });
+      } catch (err) {
+        await handleApiError(err, cfg);
+        return;
+      }
+
+      state.retryCount = 0;
+      state.currentIntervalSec = cfg.intervalSec;
+
+      const content = response.choices[0].message.content;
+      const tokensUsed = response.usage?.total_tokens || 0;
+      state.totalTokens += tokensUsed;
+
+      const utterance = {
+        index: state.utterances.length,
+        timestamp: new Date().toISOString(),
+        role: 'assistant',
+        content,
+        tokens_used: tokensUsed,
+        is_seed: false,
+        is_injected: false,
+      };
+      state.utterances.push(utterance);
+      renderUtterance(utterance);
+      saveSessionData();
+      updateStatusDisplay();
+      checkStorageWarning();
+
+      scheduleNext(state.currentIntervalSec * 1000);
+    }
+
+    async function callOpenAI(apiKey, body) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const err = new Error(errBody.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    }
+
+    async function handleApiError(err, cfg) {
+      const status = err.status;
+
+      if (status === 401) {
+        notify('APIキーが無効です。キーを確認してください', 'error');
+        stopSession();
+        return;
+      }
+
+      if (status === 429) {
+        state.currentIntervalSec = Math.min(state.currentIntervalSec * 2, 600);
+        notify(`レートリミット超過。インターバルを${state.currentIntervalSec}秒に延長して継続します`, 'warn');
+        scheduleNext(state.currentIntervalSec * 1000);
+        return;
+      }
+
+      if (!status || (status >= 500 && status < 600)) {
+        state.retryCount++;
+        if (state.retryCount <= 3) {
+          const wait = Math.pow(2, state.retryCount) * 1000;
+          notify(`APIエラー（リトライ ${state.retryCount}/3）: ${err.message}`, 'warn');
+          scheduleNext(wait);
+        } else {
+          notify(`APIエラーが続いています。ループを一時停止します: ${err.message}`, 'error');
+          state.paused = true;
+          state.retryCount = 0;
+          updateStatus('paused');
+          updateButtons();
+          document.getElementById('btnPause').textContent = '▶ 再開';
+        }
+        return;
+      }
+
+      // Network or unknown
+      notify(`ネットワークエラー: ${err.message}`, 'error');
+      state.paused = true;
+      updateStatus('paused');
+      updateButtons();
+      document.getElementById('btnPause').textContent = '▶ 再開';
+    }
+
+    // ===== INTERRUPT =====
+    function handleInterruptKey(e) {
+      if (e.key === 'Enter') injectInterrupt();
+    }
+
+    function injectInterrupt() {
+      const input = document.getElementById('interruptInput');
+      const text = input.value.trim();
+      if (!text) return;
+      state.pendingInterrupt = text;
+      input.value = '';
+
+      // Show as injected utterance in stream
+      const utterance = {
+        index: state.utterances.length,
+        timestamp: new Date().toISOString(),
+        role: 'user',
+        content: text,
+        tokens_used: 0,
+        is_seed: false,
+        is_injected: true,
+      };
+      state.utterances.push(utterance);
+      renderUtterance(utterance);
+      saveSessionData();
+      notify('割り込みメッセージを次のターンに注入します', 'success');
+    }
+
+    // ===== RENDER =====
+    function renderUtterance(u) {
+      const stream = document.getElementById('stream');
+      const div = document.createElement('div');
+      div.className = 'utterance' + (u.is_seed ? ' seed' : '') + (u.is_injected ? ' injected' : '');
+
+      const ts = new Date(u.timestamp).toLocaleTimeString('ja-JP');
+      const badge = u.is_seed ? '<span class="badge badge-seed">seed</span>' : u.is_injected ? '<span class="badge badge-injected">割り込み</span>' : '';
+      const tokens = u.tokens_used > 0 ? `${u.tokens_used}tok` : '';
+
+      div.innerHTML = `
+    <div class="utterance-meta">
+      <span class="utterance-index">#${u.index}</span>
+      ${badge}
+      <span>${ts}</span>
+      ${tokens ? `<span>${tokens}</span>` : ''}
+    </div>
+    <div class="utterance-content">${escapeHtml(u.content)}</div>
+  `;
+      stream.appendChild(div);
+
+      if (getConfig().autoScroll) {
+        div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // ===== STATUS =====
+    function updateStatus(status) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = 'status-dot ' + status;
+      text.textContent = status === 'running' ? '実行中' : status === 'paused' ? '一時停止' : '停止中';
+    }
+
+    function updateStatusDisplay() {
+      document.getElementById('utteranceCount').textContent = state.utterances.length;
+      document.getElementById('totalTokens').textContent = state.totalTokens.toLocaleString();
+    }
+
+    function startElapsedTimer() {
+      clearInterval(state.elapsedTimer);
+      const start = state.startedAt ? new Date(state.startedAt) : new Date();
+      state.elapsedTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - start.getTime()) / 1000);
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        document.getElementById('elapsedTime').textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function updateButtons() {
+      document.getElementById('btnStart').disabled = state.running;
+      document.getElementById('btnPause').disabled = !state.running;
+      document.getElementById('btnStop').disabled = !state.running;
+    }
+
+    // ===== STORAGE =====
+    function saveSessionData() {
+      if (!state.sessionId) return;
+      const cfg = getConfig();
+      const data = {
+        session_id: state.sessionId,
+        started_at: state.startedAt,
+        ended_at: null,
+        config: {
+          model: 'gpt-4o',
+          system_prompt: cfg.systemPrompt,
+          seed: cfg.seed,
+          continuation_message: cfg.continuationMsg,
+          n_context: cfg.nContext,
+          interval_sec: cfg.intervalSec,
+          time_limit_min: cfg.timeLimitMin,
+          count_limit: cfg.countLimit,
+        },
+        utterances: state.utterances,
+      };
+      try {
+        localStorage.setItem(`consciousness_session_${state.sessionId}`, JSON.stringify(data));
+      } catch (e) {
+        notify('localStorage容量不足。古いセッションを削除してください', 'error');
+      }
+    }
+
+    function getSessions() {
+      try { return JSON.parse(localStorage.getItem('consciousness_sessions')) || []; }
+      catch (e) { return []; }
+    }
+
+    function checkStorageWarning() {
+      try {
+        const usage = JSON.stringify(localStorage).length;
+        if (usage > 4 * 1024 * 1024) {
+          notify('localStorageの容量が5MBに近づいています。古いセッションを削除してください', 'warn');
+        }
+      } catch (e) { }
+    }
+
+    // ===== EXPORT =====
+    function exportSession() {
+      if (!state.sessionId) return;
+      const raw = localStorage.getItem(`consciousness_session_${state.sessionId}`);
+      if (!raw) return;
+      const blob = new Blob([raw], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session_${state.sessionId.slice(0, 8)}_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ===== RESTORE =====
+    function showRestoreModal() {
+      const sessions = getSessions();
+      const list = document.getElementById('sessionList');
+      list.innerHTML = '';
+
+      if (sessions.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">保存済みセッションがありません</p>';
+      } else {
+        sessions.forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'session-item';
+          div.innerHTML = `
+        <div class="session-id">${s.session_id}</div>
+        <div class="session-info">
+          開始: ${new Date(s.started_at).toLocaleString('ja-JP')} ／
+          発話数: ${s.utterance_count ?? '?'} ／
+          <span style="opacity:0.7">${(s.seed_preview || '').slice(0, 40)}…</span>
+        </div>
+      `;
+          div.addEventListener('click', () => restoreSession(s.session_id));
+          list.appendChild(div);
+        });
+      }
+
+      document.getElementById('restoreModal').style.display = 'flex';
+    }
+
+    function closeRestoreModal(e) {
+      if (!e || e.target === document.getElementById('restoreModal') || !e.target.closest('.modal')) {
+        document.getElementById('restoreModal').style.display = 'none';
+      }
+    }
+
+    function restoreSession(sessionId) {
+      document.getElementById('restoreModal').style.display = 'none';
+      try {
+        const data = JSON.parse(localStorage.getItem(`consciousness_session_${sessionId}`));
+        if (!data) { notify('セッションデータが見つかりません', 'error'); return; }
+
+        // Restore config
+        setConfigUI({
+          systemPrompt: data.config.system_prompt,
+          seed: data.config.seed,
+          continuationMsg: data.config.continuation_message,
+          nContext: data.config.n_context,
+          intervalSec: data.config.interval_sec,
+          timeLimitMin: data.config.time_limit_min,
+          countLimit: data.config.count_limit,
+          autoScroll: true,
+        });
+
+        // Restore state
+        state.sessionId = data.session_id;
+        state.startedAt = data.started_at;
+        state.utterances = data.utterances;
+        state.totalTokens = data.utterances.reduce((s, u) => s + (u.tokens_used || 0), 0);
+        state.running = false;
+        state.paused = false;
+
+        // Re-render
+        document.getElementById('stream').innerHTML = '';
+        state.utterances.forEach(u => renderUtterance(u));
+
+        document.getElementById('sessionIdDisplay').textContent = sessionId.slice(0, 8) + '…';
+        document.getElementById('btnExport').disabled = false;
+        updateStatusDisplay();
+        updateStatus('stopped');
+        updateButtons();
+
+        notify(`セッション ${sessionId.slice(0, 8)}… を復元しました。「▶ 開始」で続きから再開できます`, 'success');
+      } catch (e) {
+        notify('セッションの復元に失敗しました: ' + e.message, 'error');
+      }
+    }
+
+    // ===== NOTIFY =====
+    function notify(msg, type = 'info') {
+      const container = document.getElementById('notification');
+      const div = document.createElement('div');
+      div.className = `notif ${type}`;
+      div.textContent = msg;
+      container.appendChild(div);
+      setTimeout(() => div.remove(), 5000);
+    }
+  </script>
+</body>
+
+</html>
