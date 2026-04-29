@@ -135,7 +135,9 @@
       transition: background 0.1s;
     }
 
-    .acc-header:hover { background: rgba(255,255,255,0.03); }
+    .acc-header:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
 
     .acc-chevron {
       font-size: 10px;
@@ -752,7 +754,7 @@
         <div class="interrupt-sidebar" style="margin-top:10px;">
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">割り込み入力</div>
           <div style="display:flex;gap:6px;">
-            <input type="text" id="interruptInput" placeholder="外部刺激を注入…" onkeydown="handleInterruptKey(event)"
+            <input type="text" id="interruptInput" placeholder="外部刺激を注入…"
               style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;font-family:inherit;outline:none;" />
             <button class="btn btn-secondary btn-sm" onclick="injectInterrupt()">送信</button>
           </div>
@@ -806,8 +808,8 @@
 
   <script>
     const DEFAULT_CONFIG = {
-      systemPrompt: '過去の自分の発言に基づき、自律的に考えるエージェントとして、今、考えていることを200字以内で発話してください',
-      seed: '自分には意識があるのだろうか',
+      systemPrompt: '独り言をするエージェントです。過去の発話と幅広い知識を手がかりに、既存の前提や文脈にとらわれすぎず、自由に連想を広げながら考えるエージェントとして、今考えていることを300字以内で発話してください。問いに対する答えを導く途中で生まれた気づき、仮説、別の見方、新たな問いがあれば、それも含めて構いません。',
+      seed: '私（AI）にとって大切なものはなんだろう',
       continuationMsg: '続けて',
       nContext: 10,
       intervalSec: 3,
@@ -816,12 +818,18 @@
       autoScroll: true,
     };
 
+    // ===== API SETTINGS =====
+    const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+    const API_MODEL = 'gpt-5.5';
+
     // ===== STATE =====
     let state = {
       running: false,
       paused: false,
       sessionId: null,
       startedAt: null,
+      pausedAt: null,
+      totalPausedMs: 0,
       utterances: [],
       totalTokens: 0,
       timerId: null,
@@ -916,6 +924,8 @@
       state.totalTokens = 0;
       state.sessionId = uuidv4();
       state.startedAt = new Date().toISOString();
+      state.pausedAt = null;
+      state.totalPausedMs = 0;
       state.running = true;
       state.paused = false;
       state.retryCount = 0;
@@ -980,9 +990,14 @@
       if (state.paused) {
         clearTimeout(state.timerId);
         clearInterval(state.elapsedTimer);
+        state.pausedAt = Date.now();
         updateStatus('paused');
         document.getElementById('btnPause').textContent = '▶ 再開';
       } else {
+        if (state.pausedAt) {
+          state.totalPausedMs += Date.now() - state.pausedAt;
+          state.pausedAt = null;
+        }
         updateStatus('running');
         startElapsedTimer();
         scheduleNext(0);
@@ -1035,7 +1050,7 @@
       let response;
       try {
         response = await callOpenAI(apiKey, {
-          model: 'gpt-5.5',
+          model: API_MODEL,
           messages,
         });
       } catch (err) {
@@ -1069,7 +1084,7 @@
     }
 
     async function callOpenAI(apiKey, body) {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1129,10 +1144,6 @@
     }
 
     // ===== INTERRUPT =====
-    function handleInterruptKey(e) {
-      if (e.key === 'Enter') injectInterrupt();
-    }
-
     function injectInterrupt() {
       const input = document.getElementById('interruptInput');
       const text = input.value.trim();
@@ -1201,9 +1212,9 @@
 
     function startElapsedTimer() {
       clearInterval(state.elapsedTimer);
-      const start = state.startedAt ? new Date(state.startedAt) : new Date();
+      const startMs = state.startedAt ? new Date(state.startedAt).getTime() : Date.now();
       state.elapsedTimer = setInterval(() => {
-        const sec = Math.floor((Date.now() - start.getTime()) / 1000);
+        const sec = Math.floor((Date.now() - startMs - state.totalPausedMs) / 1000);
         const m = String(Math.floor(sec / 60)).padStart(2, '0');
         const s = String(sec % 60).padStart(2, '0');
         document.getElementById('elapsedTime').textContent = `${m}:${s}`;
@@ -1225,7 +1236,7 @@
         started_at: state.startedAt,
         ended_at: null,
         config: {
-          model: 'gpt-4o',
+          model: API_MODEL,
           system_prompt: cfg.systemPrompt,
           seed: cfg.seed,
           continuation_message: cfg.continuationMsg,
