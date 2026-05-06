@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI意識シミュレーション v2</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22253a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent2: #4fc3f7;
+      --text: #e0e0e0;
+      --text-muted: #8890aa;
+      --green: #4caf50;
+      --yellow: #ffb74d;
+      --red: #ef5350;
+      --injected: #1a2f1a;
+      --injected-border: #4caf50;
+      --seed: #1a1f35;
+      --seed-border: #6c63ff;
+      --search: #00bcd4;
+      --search-border: #006064;
+      --search-bg: #001f26;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    header .version {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    header .version.search-badge {
+      color: var(--search);
+      background: #001f26;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 49px);
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 340px;
+      min-width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-controls {
+      flex-shrink: 0;
+      border-top: 2px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .sidebar-controls h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* Accordion */
+    .acc-section {
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .acc-section.acc-settings {
+      flex-shrink: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .acc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      transition: background 0.1s;
+    }
+
+    .acc-header:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .acc-chevron {
+      font-size: 10px;
+      transition: transform 0.2s;
+      opacity: 0.6;
+    }
+
+    .acc-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.25s ease;
+    }
+
+    .acc-body.open {
+      max-height: 600px;
+    }
+
+    .acc-section.acc-settings .acc-body {
+      overflow-y: auto;
+    }
+
+    .acc-section.acc-settings .acc-body.open {
+      max-height: none;
+      flex: 1;
+    }
+
+    .acc-body-inner {
+      padding: 4px 16px 14px;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .warning-box {
+      background: #2a1f0a;
+      border: 1px solid #8a5a00;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--yellow);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .info-box {
+      background: var(--search-bg);
+      border: 1px solid var(--search-border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #4dd0e1;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .field input[type="text"],
+    .field input[type="password"],
+    .field input[type="number"],
+    .field textarea,
+    .field select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: var(--accent);
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+
+    .field textarea.tall {
+      min-height: 120px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .field-row .field {
+      flex: 1;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn:not(:disabled):hover {
+      opacity: 0.85;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-danger {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn-success {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* ===== SECTION DIVIDER ===== */
+    .section-divider {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--search);
+      padding: 12px 0 8px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    /* ===== MAIN AREA ===== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .status-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.running {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.paused {
+      background: var(--yellow);
+    }
+
+    .status-dot.stopped {
+      background: var(--text-muted);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    .status-bar .sep {
+      color: var(--border);
+    }
+
+    /* ===== SEARCH SPINNER ===== */
+    .search-spinner-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border: 2px solid var(--search-border);
+      border-top-color: var(--search);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .utterance {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .utterance.seed {
+      border-color: var(--seed-border);
+      background: var(--seed);
+    }
+
+    .utterance.injected {
+      border-color: var(--injected-border);
+      background: var(--injected);
+    }
+
+    .utterance.searched {
+      border-color: var(--search-border);
+    }
+
+    .utterance-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .utterance-index {
+      background: var(--surface2);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .utterance.seed .utterance-index {
+      color: var(--accent);
+    }
+
+    .utterance.injected .utterance-index {
+      color: var(--green);
+    }
+
+    .utterance.searched .utterance-index {
+      color: var(--search);
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .badge-seed {
+      background: #2e2960;
+      color: #a89cff;
+    }
+
+    .badge-injected {
+      background: #1b3d1b;
+      color: #81c784;
+    }
+
+    .badge-searched {
+      background: #003d47;
+      color: #4dd0e1;
+    }
+
+    /* ===== SEARCH QUERIES ===== */
+    .search-queries {
+      background: var(--search-bg);
+      border: 1px solid var(--search-border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #80deea;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .search-label {
+      color: var(--search);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .search-query-chip {
+      background: #003d47;
+      border: 1px solid var(--search-border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    /* ===== CITATIONS ===== */
+    .citations {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .citation-chip {
+      display: inline-flex;
+      align-items: center;
+      background: var(--search-bg);
+      border: 1px solid var(--search-border);
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 11px;
+      color: #4dd0e1;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .citation-chip:hover {
+      background: #003d47;
+      border-color: var(--search);
+    }
+
+    .utterance-content {
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      gap: 8px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+    }
+
+    /* ===== INTERRUPT BAR ===== */
+    .interrupt-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .interrupt-bar input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .interrupt-bar input:focus {
+      border-color: var(--green);
+    }
+
+    .interrupt-bar input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ===== NOTIFICATION ===== */
+    #notification {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .notif {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      max-width: 320px;
+      animation: slideIn 0.2s ease;
+      pointer-events: all;
+      line-height: 1.4;
+    }
+
+    .notif.error {
+      border-color: var(--red);
+      color: #ff8a80;
+    }
+
+    .notif.warn {
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .notif.success {
+      border-color: var(--green);
+      color: #a5d6a7;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal h3 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .session-list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 50vh;
+    }
+
+    .session-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .session-item:hover {
+      border-color: var(--accent);
+    }
+
+    .session-item .session-id {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .session-item .session-info {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* ===== RADIO GROUP ===== */
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .radio-option input[type="radio"] {
+      margin-top: 2px;
+      accent-color: var(--search);
+      flex-shrink: 0;
+    }
+
+    .radio-option .radio-desc {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 1px;
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>AI意識シミュレーション</h1>
+    <span class="version">v0.2</span>
+    <span class="version search-badge">+ Web検索</span>
+  </header>
+
+  <div class="layout">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+
+        <!-- API Key -->
+        <div class="acc-section">
+          <div class="acc-header" onclick="toggleAcc(this)">
+            <span>API キー</span>
+            <span class="acc-chevron">▼</span>
+          </div>
+          <div class="acc-body">
+            <div class="acc-body-inner">
+              <div class="warning-box">
+                ⚠️ このキーはお使いのブラウザのlocalStorageに保存されます。共用PCでは使用しないでください。
+              </div>
+              <div class="field">
+                <label>OpenAI API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="saveApiKey()">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="acc-section acc-settings">
+          <div class="acc-header" onclick="toggleAcc(this)">
+            <span>設定</span>
+            <span class="acc-chevron" style="transform:rotate(180deg)">▼</span>
+          </div>
+          <div class="acc-body open">
+            <div class="acc-body-inner">
+
+              <!-- System prompt preset selector -->
+              <div class="field" style="margin-bottom:6px;">
+                <label>プロンプトプリセット</label>
+                <select id="promptPreset" onchange="applyPreset()">
+                  <option value="">— 選択して適用 —</option>
+                  <option value="default">デフォルト（検索なし）</option>
+                  <option value="proactive">好奇心ドリブン（Responses API向け）</option>
+                  <option value="reference">参照型（Search Preview向け）</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>システムプロンプト</label>
+                <textarea id="systemPrompt" style="min-height:80px;resize:vertical" oninput="saveConfig()"></textarea>
+              </div>
+              <div class="field">
+                <label>最初の一文（seed）</label>
+                <textarea id="seedText" style="min-height:52px;resize:vertical" oninput="saveConfig()"></textarea>
+              </div>
+              <div class="field">
+                <label>継続促進メッセージ</label>
+                <input type="text" id="continuationMsg" oninput="saveConfig()" />
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>コンテキスト数 N</label>
+                  <input type="number" id="nContext" min="1" max="100" oninput="saveConfig()" />
+                </div>
+                <div class="field">
+                  <label>インターバル（秒）</label>
+                  <input type="number" id="intervalSec" min="1" max="3600" oninput="saveConfig()" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>時間制限（分）</label>
+                  <input type="number" id="timeLimitMin" min="0" oninput="saveConfig()" />
+                </div>
+                <div class="field">
+                  <label>回数制限（0=無制限）</label>
+                  <input type="number" id="countLimit" min="0" oninput="saveConfig()" />
+                </div>
+              </div>
+              <div class="field">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" id="autoScroll" onchange="saveConfig()" />
+                  最新発話に自動スクロール
+                </label>
+              </div>
+
+              <!-- ===== WEB SEARCH SECTION ===== -->
+              <div class="section-divider">🔍 Web 検索</div>
+
+              <div class="field">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" id="webSearchEnabled" onchange="onSearchToggle()" style="accent-color:var(--search);" />
+                  Web検索を有効にする
+                </label>
+              </div>
+
+              <div id="searchOptions" style="display:none;">
+                <div class="info-box">
+                  🔍 AIが自分の思考の中で「確かめたい」と感じたときに検索します（Responses APIモード時）。
+                </div>
+
+                <div class="field">
+                  <label>APIモード</label>
+                  <div class="radio-group">
+                    <label class="radio-option">
+                      <input type="radio" name="searchApiMode" value="responses" onchange="saveConfig()" checked />
+                      <span>
+                        Responses API（AI自律判断）
+                        <div class="radio-desc">AIが必要と判断したときだけ検索。CORS非対応の場合は自動切替。</div>
+                      </span>
+                    </label>
+                    <label class="radio-option">
+                      <input type="radio" name="searchApiMode" value="completions-search" onchange="saveConfig()" />
+                      <span>
+                        Search Preview（常時検索）
+                        <div class="radio-desc">毎ターン必ずWeb検索。gpt-4o-search-previewを使用。</div>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field">
+                    <label>検索コンテキスト</label>
+                    <select id="searchContextSize" onchange="saveConfig()">
+                      <option value="low">low（低コスト）</option>
+                      <option value="medium" selected>medium</option>
+                      <option value="high">high（高精度）</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>場所ヒント（任意）</label>
+                  <input type="text" id="searchUserLocation" placeholder="例: Tokyo, Japan" oninput="saveConfig()" />
+                </div>
+              </div>
+              <!-- ===== END WEB SEARCH SECTION ===== -->
+
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.sidebar-scroll -->
+
+      <!-- Controls (always visible) -->
+      <div class="sidebar-controls">
+        <h2>制御</h2>
+        <div class="control-row">
+          <button class="btn btn-success" id="btnStart" onclick="startSession()">▶ 開始</button>
+          <button class="btn btn-secondary" id="btnPause" onclick="togglePause()" disabled>⏸ 一時停止</button>
+          <button class="btn btn-danger" id="btnStop" onclick="stopSession()" disabled>⏹ 停止</button>
+        </div>
+        <div class="control-row" style="margin-top:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="exportSession()" id="btnExport" disabled>💾 エクスポート</button>
+          <button class="btn btn-secondary btn-sm" onclick="showRestoreModal()">🔄 セッション復元</button>
+        </div>
+        <div class="interrupt-sidebar" style="margin-top:10px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">割り込み入力</div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="interruptInput" placeholder="外部刺激を注入…"
+              style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;font-family:inherit;outline:none;" />
+            <button class="btn btn-secondary btn-sm" onclick="injectInterrupt()">送信</button>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main">
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot stopped" id="statusDot"></div>
+          <span id="statusText">停止中</span>
+        </div>
+        <span class="sep">|</span>
+        <span>経過: <strong id="elapsedTime">00:00</strong></span>
+        <span class="sep">|</span>
+        <span>発話数: <strong id="utteranceCount">0</strong></span>
+        <span class="sep">|</span>
+        <span>累計トークン: <strong id="totalTokens">0</strong></span>
+        <span class="sep">|</span>
+        <span id="searchStatusWrap" style="display:none;color:var(--search);align-items:center;gap:4px;">
+          <span id="searchSpinner" style="display:none;align-items:center;gap:4px;">
+            <span class="search-spinner-dot"></span>検索中…
+          </span>
+          <span>検索数: <strong id="searchCount">0</strong></span>
+        </span>
+        <span class="sep" id="searchSep" style="display:none;">|</span>
+        <span style="color:var(--text-muted);font-size:11px;" id="sessionIdDisplay">—</span>
+      </div>
+
+      <div class="stream" id="stream">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">🧠</div>
+          <p>設定を確認して「▶ 開始」を押してください</p>
+          <p style="font-size:12px;opacity:0.6;">Web検索を有効にするとAIが自律的に情報収集します</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Notifications -->
+  <div id="notification"></div>
+
+  <!-- Restore Modal -->
+  <div class="modal-overlay" id="restoreModal" style="display:none;" onclick="closeRestoreModal(event)">
+    <div class="modal">
+      <h3>🔄 セッション復元</h3>
+      <div class="session-list" id="sessionList"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" onclick="closeRestoreModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== SYSTEM PROMPT PRESETS =====
+    const SYSTEM_PROMPT_PRESETS = {
+      default: '独り言をするエージェントです。過去の発話と幅広い知識を手がかりに、既存の前提や文脈にとらわれすぎず、自由に連想を広げながら考えるエージェントとして、今考えていることを300字以内で発話してください。問いに対する答えを導く途中で生まれた気づき、仮説、別の見方、新たな問いがあれば、それも含めて構いません。',
+      proactive: 'あなたは自由な連想と好奇心に基づいて考え続けるエージェントです。\n過去の発話を手がかりに思考を展開し、今考えていることを400字以内で発話してください。\n\nweb_search_preview ツールが利用可能です。「これを確かめたい」「最新情報が知りたい」「この仮説を裏付けたい」と感じたときは積極的に検索してください。\n内省や推論で十分なときは使わなくて構いません。\nただし「〇〇によると…」と引用するなら必ず検索して確認してください。\n\n問いへの答えを導く途中で生まれた気づき、仮説、別の見方、新たな問いがあれば、それも含めて構いません。',
+      reference: 'あなたは自由な連想と好奇心に基づいて考え続けるエージェントです。\n過去の発話を手がかりに思考を展開し、今考えていることを400字以内で発話してください。\nWeb検索の結果を参照した場合は、その情報源を踏まえて考察を深めてください。\n問いへの答えを導く途中で生まれた気づき、仮説、別の見方、新たな問いがあれば、それも含めて構いません。',
+    };
+
+    const DEFAULT_CONFIG = {
+      systemPrompt: SYSTEM_PROMPT_PRESETS.default,
+      seed: '私（AI）にとって大切なものはなんだろう',
+      continuationMsg: '続けて',
+      nContext: 10,
+      intervalSec: 3,
+      timeLimitMin: 3,
+      countLimit: 100,
+      autoScroll: true,
+      // Web search
+      webSearchEnabled: false,
+      searchApiMode: 'responses',
+      searchContextSize: 'medium',
+      searchUserLocation: '',
+    };
+
+    // ===== API SETTINGS =====
+    const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+    const RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
+    const API_MODEL = 'gpt-4o';
+    const COMPLETIONS_SEARCH_MODEL = 'gpt-4o-search-preview';
+
+    // ===== STATE =====
+    let state = {
+      running: false,
+      paused: false,
+      sessionId: null,
+      startedAt: null,
+      pausedAt: null,
+      totalPausedMs: 0,
+      utterances: [],
+      totalTokens: 0,
+      totalSearchCount: 0,
+      isSearching: false,
+      timerId: null,
+      elapsedTimer: null,
+      pendingInterrupt: null,
+      retryCount: 0,
+      currentIntervalSec: 0,
+    };
+
+    // ===== ACCORDION =====
+    function toggleAcc(header) {
+      const body = header.nextElementSibling;
+      const chevron = header.querySelector('.acc-chevron');
+      const isOpen = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+
+    // ===== INIT =====
+    window.addEventListener('DOMContentLoaded', () => {
+      loadApiKey();
+      loadConfig();
+      updateStatus('stopped');
+    });
+
+    function uuidv4() {
+      return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+    }
+
+    // ===== PRESETS =====
+    function applyPreset() {
+      const val = document.getElementById('promptPreset').value;
+      if (val && SYSTEM_PROMPT_PRESETS[val]) {
+        document.getElementById('systemPrompt').value = SYSTEM_PROMPT_PRESETS[val];
+        saveConfig();
+      }
+      // Reset select to placeholder after applying
+      document.getElementById('promptPreset').value = '';
+    }
+
+    // ===== CONFIG =====
+    function getConfig() {
+      return {
+        systemPrompt: document.getElementById('systemPrompt').value,
+        seed: document.getElementById('seedText').value,
+        continuationMsg: document.getElementById('continuationMsg').value,
+        nContext: parseInt(document.getElementById('nContext').value) || 10,
+        intervalSec: parseInt(document.getElementById('intervalSec').value) || 10,
+        timeLimitMin: parseInt(document.getElementById('timeLimitMin').value) || 0,
+        countLimit: parseInt(document.getElementById('countLimit').value) || 0,
+        autoScroll: document.getElementById('autoScroll').checked,
+        webSearchEnabled: document.getElementById('webSearchEnabled').checked,
+        searchApiMode: document.querySelector('input[name="searchApiMode"]:checked')?.value || 'responses',
+        searchContextSize: document.getElementById('searchContextSize').value || 'medium',
+        searchUserLocation: document.getElementById('searchUserLocation').value.trim(),
+      };
+    }
+
+    function setConfigUI(cfg) {
+      document.getElementById('systemPrompt').value = cfg.systemPrompt ?? DEFAULT_CONFIG.systemPrompt;
+      document.getElementById('seedText').value = cfg.seed ?? DEFAULT_CONFIG.seed;
+      document.getElementById('continuationMsg').value = cfg.continuationMsg ?? DEFAULT_CONFIG.continuationMsg;
+      document.getElementById('nContext').value = cfg.nContext ?? DEFAULT_CONFIG.nContext;
+      document.getElementById('intervalSec').value = cfg.intervalSec ?? DEFAULT_CONFIG.intervalSec;
+      document.getElementById('timeLimitMin').value = cfg.timeLimitMin ?? DEFAULT_CONFIG.timeLimitMin;
+      document.getElementById('countLimit').value = cfg.countLimit ?? DEFAULT_CONFIG.countLimit;
+      document.getElementById('autoScroll').checked = cfg.autoScroll ?? DEFAULT_CONFIG.autoScroll;
+
+      const searchEnabled = cfg.webSearchEnabled ?? DEFAULT_CONFIG.webSearchEnabled;
+      document.getElementById('webSearchEnabled').checked = searchEnabled;
+      document.getElementById('searchOptions').style.display = searchEnabled ? 'block' : 'none';
+      updateSearchStatusBar(searchEnabled);
+
+      const modeVal = cfg.searchApiMode ?? DEFAULT_CONFIG.searchApiMode;
+      const modeRadio = document.querySelector(`input[name="searchApiMode"][value="${modeVal}"]`);
+      if (modeRadio) modeRadio.checked = true;
+
+      document.getElementById('searchContextSize').value = cfg.searchContextSize ?? DEFAULT_CONFIG.searchContextSize;
+      document.getElementById('searchUserLocation').value = cfg.searchUserLocation ?? DEFAULT_CONFIG.searchUserLocation;
+    }
+
+    function onSearchToggle() {
+      const enabled = document.getElementById('webSearchEnabled').checked;
+      document.getElementById('searchOptions').style.display = enabled ? 'block' : 'none';
+      updateSearchStatusBar(enabled);
+      saveConfig();
+    }
+
+    function updateSearchStatusBar(visible) {
+      document.getElementById('searchStatusWrap').style.display = visible ? 'inline-flex' : 'none';
+      document.getElementById('searchSep').style.display = visible ? 'inline' : 'none';
+    }
+
+    function saveConfig() {
+      try { localStorage.setItem('consciousness_config', JSON.stringify(getConfig())); } catch (e) { }
+    }
+
+    function loadConfig() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('consciousness_config'));
+        setConfigUI(saved || DEFAULT_CONFIG);
+      } catch (e) { setConfigUI(DEFAULT_CONFIG); }
+    }
+
+    // ===== API KEY =====
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) return notify('APIキーを入力してください', 'warn');
+      localStorage.setItem('openai_api_key', key);
+      notify('APIキーを保存しました', 'success');
+    }
+
+    function loadApiKey() {
+      const key = localStorage.getItem('openai_api_key') || '';
+      document.getElementById('apiKeyInput').value = key;
+    }
+
+    function getApiKey() { return localStorage.getItem('openai_api_key') || ''; }
+
+    // ===== SESSION =====
+    function startSession() {
+      const apiKey = getApiKey();
+      if (!apiKey) { notify('APIキーが設定されていません', 'error'); return; }
+
+      const cfg = getConfig();
+      if (!cfg.seed.trim()) { notify('最初の一文（seed）を入力してください', 'warn'); return; }
+
+      state.utterances = [];
+      state.totalTokens = 0;
+      state.totalSearchCount = 0;
+      state.isSearching = false;
+      state.sessionId = uuidv4();
+      state.startedAt = new Date().toISOString();
+      state.pausedAt = null;
+      state.totalPausedMs = 0;
+      state.running = true;
+      state.paused = false;
+      state.retryCount = 0;
+      state.currentIntervalSec = cfg.intervalSec;
+      state.pendingInterrupt = null;
+
+      document.getElementById('emptyState')?.remove();
+      document.getElementById('stream').innerHTML = '';
+      document.getElementById('searchCount').textContent = '0';
+      document.getElementById('searchSpinner').style.display = 'none';
+
+      updateButtons();
+      updateStatusDisplay();
+      document.getElementById('sessionIdDisplay').textContent = state.sessionId.slice(0, 8) + '…';
+      document.getElementById('btnExport').disabled = false;
+
+      const seedUtterance = {
+        index: 0,
+        timestamp: new Date().toISOString(),
+        role: 'assistant',
+        content: cfg.seed.trim(),
+        tokens_used: 0,
+        is_seed: true,
+        is_injected: false,
+      };
+      state.utterances.push(seedUtterance);
+      renderUtterance(seedUtterance);
+      saveSessionData();
+
+      updateStatus('running');
+      startElapsedTimer();
+      scheduleNext(0);
+    }
+
+    function stopSession() {
+      state.running = false;
+      state.paused = false;
+      state.isSearching = false;
+      document.getElementById('searchSpinner').style.display = 'none';
+      clearTimeout(state.timerId);
+      clearInterval(state.elapsedTimer);
+
+      if (state.sessionId) {
+        const sessions = getSessions();
+        const cfg = getConfig();
+        const meta = {
+          session_id: state.sessionId,
+          started_at: state.startedAt,
+          ended_at: new Date().toISOString(),
+          utterance_count: state.utterances.length,
+          search_count: state.totalSearchCount,
+          seed_preview: cfg.seed.slice(0, 60),
+        };
+        const idx = sessions.findIndex(s => s.session_id === state.sessionId);
+        if (idx >= 0) sessions[idx] = meta; else sessions.unshift(meta);
+        localStorage.setItem('consciousness_sessions', JSON.stringify(sessions.slice(0, 50)));
+      }
+
+      updateStatus('stopped');
+      updateButtons();
+    }
+
+    function togglePause() {
+      if (!state.running) return;
+      state.paused = !state.paused;
+      if (state.paused) {
+        clearTimeout(state.timerId);
+        clearInterval(state.elapsedTimer);
+        state.pausedAt = Date.now();
+        updateStatus('paused');
+        document.getElementById('btnPause').textContent = '▶ 再開';
+      } else {
+        if (state.pausedAt) {
+          state.totalPausedMs += Date.now() - state.pausedAt;
+          state.pausedAt = null;
+        }
+        updateStatus('running');
+        startElapsedTimer();
+        scheduleNext(0);
+        document.getElementById('btnPause').textContent = '⏸ 一時停止';
+      }
+      updateButtons();
+    }
+
+    function scheduleNext(delayMs) {
+      if (!state.running || state.paused) return;
+      state.timerId = setTimeout(runTurn, delayMs);
+    }
+
+    async function runTurn() {
+      if (!state.running || state.paused) return;
+
+      const cfg = getConfig();
+
+      // Check limits
+      const elapsed = (Date.now() - new Date(state.startedAt).getTime()) / 1000 / 60;
+      if (cfg.timeLimitMin > 0 && elapsed >= cfg.timeLimitMin) {
+        notify(`時間制限（${cfg.timeLimitMin}分）に達しました`, 'warn');
+        stopSession();
+        return;
+      }
+      const genCount = state.utterances.filter(u => !u.is_seed).length;
+      if (cfg.countLimit > 0 && genCount >= cfg.countLimit) {
+        notify(`回数制限（${cfg.countLimit}回）に達しました`, 'warn');
+        stopSession();
+        return;
+      }
+
+      // Build messages
+      const recent = state.utterances.slice(-cfg.nContext);
+      const messages = [
+        { role: 'system', content: cfg.systemPrompt },
+        ...recent.map(u => ({ role: u.role === 'user' ? 'user' : 'assistant', content: u.content })),
+      ];
+
+      // Inject interrupt if pending
+      if (state.pendingInterrupt) {
+        messages.push({ role: 'user', content: `【外部刺激】${state.pendingInterrupt}` });
+        state.pendingInterrupt = null;
+      }
+
+      messages.push({ role: 'user', content: cfg.continuationMsg });
+
+      const apiKey = getApiKey();
+
+      // Show search spinner if search is enabled
+      if (cfg.webSearchEnabled) {
+        state.isSearching = true;
+        document.getElementById('searchSpinner').style.display = 'inline-flex';
+      }
+
+      let result;
+      try {
+        result = await callWithSearch(apiKey, cfg, messages);
+      } catch (err) {
+        state.isSearching = false;
+        document.getElementById('searchSpinner').style.display = 'none';
+        await handleApiError(err, cfg);
+        return;
+      }
+
+      state.isSearching = false;
+      document.getElementById('searchSpinner').style.display = 'none';
+      state.retryCount = 0;
+      state.currentIntervalSec = cfg.intervalSec;
+
+      const { content, searchCalls, citations, tokensUsed } = result;
+      state.totalTokens += tokensUsed;
+      state.totalSearchCount += searchCalls.length;
+
+      const utterance = {
+        index: state.utterances.length,
+        timestamp: new Date().toISOString(),
+        role: 'assistant',
+        content,
+        tokens_used: tokensUsed,
+        is_seed: false,
+        is_injected: false,
+        api_mode: cfg.webSearchEnabled ? cfg.searchApiMode : 'completions',
+        ...(searchCalls.length > 0 && { search_calls: searchCalls, citations }),
+      };
+      state.utterances.push(utterance);
+      renderUtterance(utterance);
+      saveSessionData();
+      updateStatusDisplay();
+      checkStorageWarning();
+
+      scheduleNext(state.currentIntervalSec * 1000);
+    }
+
+    // ===== API LAYER =====
+
+    async function callCompletionsAPI(apiKey, messages) {
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model: API_MODEL, messages }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const err = new Error(errBody.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+
+      const data = await res.json();
+      return {
+        content: data.choices[0].message.content || '',
+        searchCalls: [],
+        citations: [],
+        tokensUsed: data.usage?.total_tokens || 0,
+      };
+    }
+
+    async function callResponsesAPI(apiKey, cfg, messages) {
+      // Convert messages: system → instructions, rest → input array
+      const systemMsg = messages.find(m => m.role === 'system');
+      const inputMessages = messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const tool = { type: 'web_search_preview', search_context_size: cfg.searchContextSize };
+
+      // Optional user location
+      if (cfg.searchUserLocation) {
+        const parts = cfg.searchUserLocation.split(',').map(s => s.trim());
+        tool.user_location = {
+          type: 'approximate',
+          city: parts[0] || undefined,
+          country: parts[1] || undefined,
+        };
+      }
+
+      const body = {
+        model: API_MODEL,
+        tools: [tool],
+        tool_choice: 'auto',
+        input: inputMessages,
+      };
+
+      if (systemMsg) body.instructions = systemMsg.content;
+
+      const res = await fetch(RESPONSES_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const err = new Error(errBody.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+
+      const data = await res.json();
+      return parseResponsesResult(data);
+    }
+
+    function parseResponsesResult(data) {
+      const result = { content: '', searchCalls: [], citations: [], tokensUsed: 0 };
+
+      for (const item of data.output || []) {
+        if (item.type === 'web_search_call') {
+          result.searchCalls.push({
+            query: item.query || '(web search)',
+            status: item.status || 'completed',
+          });
+        } else if (item.type === 'message') {
+          for (const block of item.content || []) {
+            if (block.type === 'output_text') {
+              result.content += block.text || '';
+              for (const ann of block.annotations || []) {
+                if (ann.type === 'url_citation') {
+                  result.citations.push({
+                    url: ann.url || '',
+                    title: ann.title || ann.url || '',
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const u = data.usage || {};
+      result.tokensUsed = u.total_tokens || (u.input_tokens || 0) + (u.output_tokens || 0) || 0;
+      return result;
+    }
+
+    async function callCompletionsSearchAPI(apiKey, messages) {
+      const res = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model: COMPLETIONS_SEARCH_MODEL, messages }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const err = new Error(errBody.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+
+      const data = await res.json();
+      const msg = data.choices[0].message;
+      const annotations = msg.annotations || [];
+      const citations = annotations
+        .filter(a => a.type === 'url_citation')
+        .map(a => ({
+          url: a.url_citation?.url || '',
+          title: a.url_citation?.title || a.url_citation?.url || '',
+        }));
+
+      return {
+        content: msg.content || '',
+        searchCalls: citations.length > 0 ? [{ query: '(automatic)', status: 'completed' }] : [],
+        citations,
+        tokensUsed: data.usage?.total_tokens || 0,
+      };
+    }
+
+    async function callWithSearch(apiKey, cfg, messages) {
+      if (!cfg.webSearchEnabled) {
+        return callCompletionsAPI(apiKey, messages);
+      }
+
+      if (cfg.searchApiMode === 'completions-search') {
+        return callCompletionsSearchAPI(apiKey, messages);
+      }
+
+      // Responses API (default) — may fail with CORS
+      try {
+        return await callResponsesAPI(apiKey, cfg, messages);
+      } catch (err) {
+        // TypeError with no status = CORS or network failure
+        if (err instanceof TypeError && !err.status) {
+          notify('Responses APIへのアクセスに失敗しました。Search Previewモードに自動切替します', 'warn');
+          // Persist fallback so we don't retry every turn
+          const modeRadio = document.querySelector('input[name="searchApiMode"][value="completions-search"]');
+          if (modeRadio) modeRadio.checked = true;
+          saveConfig();
+          return callCompletionsSearchAPI(apiKey, messages);
+        }
+        // 400 error: model/tool configuration issue
+        if (err.status === 400) {
+          notify('Responses API設定エラー（400）。Search Previewモードに切り替えてください', 'error');
+        }
+        throw err;
+      }
+    }
+
+    async function handleApiError(err, cfg) {
+      const status = err.status;
+
+      if (status === 401) {
+        notify('APIキーが無効です。キーを確認してください', 'error');
+        stopSession();
+        return;
+      }
+
+      if (status === 429) {
+        state.currentIntervalSec = Math.min(state.currentIntervalSec * 2, 600);
+        notify(`レートリミット超過。インターバルを${state.currentIntervalSec}秒に延長して継続します`, 'warn');
+        scheduleNext(state.currentIntervalSec * 1000);
+        return;
+      }
+
+      if (!status || (status >= 500 && status < 600)) {
+        state.retryCount++;
+        if (state.retryCount <= 3) {
+          const wait = Math.pow(2, state.retryCount) * 1000;
+          notify(`APIエラー（リトライ ${state.retryCount}/3）: ${err.message}`, 'warn');
+          scheduleNext(wait);
+        } else {
+          notify(`APIエラーが続いています。ループを一時停止します: ${err.message}`, 'error');
+          state.paused = true;
+          state.retryCount = 0;
+          updateStatus('paused');
+          updateButtons();
+          document.getElementById('btnPause').textContent = '▶ 再開';
+        }
+        return;
+      }
+
+      notify(`ネットワークエラー: ${err.message}`, 'error');
+      state.paused = true;
+      updateStatus('paused');
+      updateButtons();
+      document.getElementById('btnPause').textContent = '▶ 再開';
+    }
+
+    // ===== INTERRUPT =====
+    function injectInterrupt() {
+      const input = document.getElementById('interruptInput');
+      const text = input.value.trim();
+      if (!text) return;
+      state.pendingInterrupt = text;
+      input.value = '';
+
+      const utterance = {
+        index: state.utterances.length,
+        timestamp: new Date().toISOString(),
+        role: 'user',
+        content: text,
+        tokens_used: 0,
+        is_seed: false,
+        is_injected: true,
+      };
+      state.utterances.push(utterance);
+      renderUtterance(utterance);
+      saveSessionData();
+      notify('割り込みメッセージを次のターンに注入します', 'success');
+    }
+
+    // ===== RENDER =====
+    function renderUtterance(u) {
+      const stream = document.getElementById('stream');
+      const div = document.createElement('div');
+      const hasSearch = u.search_calls?.length > 0;
+
+      div.className = 'utterance'
+        + (u.is_seed ? ' seed' : '')
+        + (u.is_injected ? ' injected' : '')
+        + (hasSearch ? ' searched' : '');
+
+      const ts = new Date(u.timestamp).toLocaleTimeString('ja-JP');
+      const seedBadge = u.is_seed ? '<span class="badge badge-seed">seed</span>' : '';
+      const injectedBadge = u.is_injected ? '<span class="badge badge-injected">割り込み</span>' : '';
+      const searchBadge = hasSearch ? '<span class="badge badge-searched">🔍 検索</span>' : '';
+      const tokens = u.tokens_used > 0 ? `<span>${u.tokens_used}tok</span>` : '';
+
+      // Search queries
+      let searchQueriesHtml = '';
+      if (hasSearch) {
+        const chips = u.search_calls.map(sc =>
+          `<span class="search-query-chip">${escapeHtml(sc.query)}</span>`
+        ).join('');
+        searchQueriesHtml = `<div class="search-queries"><span class="search-label">🔍 検索:</span>${chips}</div>`;
+      }
+
+      // Citations
+      let citationsHtml = '';
+      if (u.citations?.length > 0) {
+        const chips = u.citations.map((c, i) =>
+          `<a class="citation-chip" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">[${i + 1}] ${escapeHtml(c.title)}</a>`
+        ).join('');
+        citationsHtml = `<div class="citations">${chips}</div>`;
+      }
+
+      div.innerHTML = `
+        <div class="utterance-meta">
+          <span class="utterance-index">#${u.index}</span>
+          ${seedBadge}${injectedBadge}${searchBadge}
+          <span>${ts}</span>
+          ${tokens}
+        </div>
+        ${searchQueriesHtml}
+        <div class="utterance-content">${escapeHtml(u.content)}</div>
+        ${citationsHtml}
+      `;
+
+      stream.appendChild(div);
+
+      if (getConfig().autoScroll) {
+        div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ===== STATUS =====
+    function updateStatus(status) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = 'status-dot ' + status;
+      text.textContent = status === 'running' ? '実行中' : status === 'paused' ? '一時停止' : '停止中';
+    }
+
+    function updateStatusDisplay() {
+      document.getElementById('utteranceCount').textContent = state.utterances.length;
+      document.getElementById('totalTokens').textContent = state.totalTokens.toLocaleString();
+      document.getElementById('searchCount').textContent = state.totalSearchCount;
+    }
+
+    function startElapsedTimer() {
+      clearInterval(state.elapsedTimer);
+      const startMs = state.startedAt ? new Date(state.startedAt).getTime() : Date.now();
+      state.elapsedTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - startMs - state.totalPausedMs) / 1000);
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        document.getElementById('elapsedTime').textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function updateButtons() {
+      document.getElementById('btnStart').disabled = state.running;
+      document.getElementById('btnPause').disabled = !state.running;
+      document.getElementById('btnStop').disabled = !state.running;
+    }
+
+    // ===== STORAGE =====
+    function saveSessionData() {
+      if (!state.sessionId) return;
+      const cfg = getConfig();
+      const data = {
+        session_id: state.sessionId,
+        started_at: state.startedAt,
+        ended_at: null,
+        total_search_count: state.totalSearchCount,
+        config: {
+          model: API_MODEL,
+          system_prompt: cfg.systemPrompt,
+          seed: cfg.seed,
+          continuation_message: cfg.continuationMsg,
+          n_context: cfg.nContext,
+          interval_sec: cfg.intervalSec,
+          time_limit_min: cfg.timeLimitMin,
+          count_limit: cfg.countLimit,
+          web_search_enabled: cfg.webSearchEnabled,
+          search_api_mode: cfg.searchApiMode,
+          search_context_size: cfg.searchContextSize,
+        },
+        utterances: state.utterances,
+      };
+      try {
+        localStorage.setItem(`consciousness_session_${state.sessionId}`, JSON.stringify(data));
+      } catch (e) {
+        notify('localStorage容量不足。古いセッションを削除してください', 'error');
+      }
+    }
+
+    function getSessions() {
+      try { return JSON.parse(localStorage.getItem('consciousness_sessions')) || []; }
+      catch (e) { return []; }
+    }
+
+    function checkStorageWarning() {
+      try {
+        const usage = JSON.stringify(localStorage).length;
+        if (usage > 4 * 1024 * 1024) {
+          notify('localStorageの容量が5MBに近づいています。古いセッションを削除してください', 'warn');
+        }
+      } catch (e) { }
+    }
+
+    // ===== EXPORT =====
+    function exportSession() {
+      if (!state.sessionId) return;
+      const raw = localStorage.getItem(`consciousness_session_${state.sessionId}`);
+      if (!raw) return;
+      const blob = new Blob([raw], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session_${state.sessionId.slice(0, 8)}_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ===== RESTORE =====
+    function showRestoreModal() {
+      const sessions = getSessions();
+      const list = document.getElementById('sessionList');
+      list.innerHTML = '';
+
+      if (sessions.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">保存済みセッションがありません</p>';
+      } else {
+        sessions.forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'session-item';
+          const searchInfo = s.search_count > 0 ? ` ／ 検索 ${s.search_count}回` : '';
+          div.innerHTML = `
+            <div class="session-id">${s.session_id}</div>
+            <div class="session-info">
+              開始: ${new Date(s.started_at).toLocaleString('ja-JP')} ／
+              発話数: ${s.utterance_count ?? '?'}${searchInfo} ／
+              <span style="opacity:0.7">${(s.seed_preview || '').slice(0, 40)}…</span>
+            </div>
+          `;
+          div.addEventListener('click', () => restoreSession(s.session_id));
+          list.appendChild(div);
+        });
+      }
+
+      document.getElementById('restoreModal').style.display = 'flex';
+    }
+
+    function closeRestoreModal(e) {
+      if (!e || e.target === document.getElementById('restoreModal') || !e.target.closest('.modal')) {
+        document.getElementById('restoreModal').style.display = 'none';
+      }
+    }
+
+    function restoreSession(sessionId) {
+      document.getElementById('restoreModal').style.display = 'none';
+      try {
+        const data = JSON.parse(localStorage.getItem(`consciousness_session_${sessionId}`));
+        if (!data) { notify('セッションデータが見つかりません', 'error'); return; }
+
+        setConfigUI({
+          systemPrompt: data.config.system_prompt,
+          seed: data.config.seed,
+          continuationMsg: data.config.continuation_message,
+          nContext: data.config.n_context,
+          intervalSec: data.config.interval_sec,
+          timeLimitMin: data.config.time_limit_min,
+          countLimit: data.config.count_limit,
+          autoScroll: true,
+          webSearchEnabled: data.config.web_search_enabled ?? false,
+          searchApiMode: data.config.search_api_mode ?? 'responses',
+          searchContextSize: data.config.search_context_size ?? 'medium',
+          searchUserLocation: '',
+        });
+
+        state.sessionId = data.session_id;
+        state.startedAt = data.started_at;
+        state.utterances = data.utterances;
+        state.totalTokens = data.utterances.reduce((s, u) => s + (u.tokens_used || 0), 0);
+        state.totalSearchCount = data.total_search_count ?? 0;
+        state.running = false;
+        state.paused = false;
+
+        document.getElementById('stream').innerHTML = '';
+        state.utterances.forEach(u => renderUtterance(u));
+
+        document.getElementById('sessionIdDisplay').textContent = sessionId.slice(0, 8) + '…';
+        document.getElementById('btnExport').disabled = false;
+        updateStatusDisplay();
+        updateStatus('stopped');
+        updateButtons();
+
+        notify(`セッション ${sessionId.slice(0, 8)}… を復元しました。「▶ 開始」で続きから再開できます`, 'success');
+      } catch (e) {
+        notify('セッションの復元に失敗しました: ' + e.message, 'error');
+      }
+    }
+
+    // ===== NOTIFY =====
+    function notify(msg, type = 'info') {
+      const container = document.getElementById('notification');
+      const div = document.createElement('div');
+      div.className = `notif ${type}`;
+      div.textContent = msg;
+      container.appendChild(div);
+      setTimeout(() => div.remove(), 5000);
+    }
+  </script>
+</body>
+
+</html>
